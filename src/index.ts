@@ -1,7 +1,7 @@
 import { Gravel } from "./DustType/Gravel";
 import { Sand } from "./DustType/Sand";
 import { Solid } from "./DustType/Solid";
-import { Water } from "./DustType/Water";
+import { Liquid } from "./DustType/Liquid";
 import { World } from "./World";
 
 let canvas: HTMLCanvasElement | null = null;
@@ -54,7 +54,7 @@ function load()
                     case "gravel":
                         return new Gravel();
                     case "water":
-                        return new Water();
+                        return new Liquid();
                     default:
                         return null;
                 }

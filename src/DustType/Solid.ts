@@ -1,7 +1,9 @@
-import { Dust } from "../Dust";
+import { DustBase } from "../Dust";
 
-export class Solid extends Dust
+export class Solid extends DustBase
 {
+    public physicsType: "solid" = "solid";
+
     constructor()
     {
         super({

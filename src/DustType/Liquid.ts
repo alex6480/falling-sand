@@ -1,11 +1,13 @@
-import { Dust } from "../Dust";
+import { DustBase } from "../Dust";
 import { World } from "../World";
 
-export class Water extends Dust
+export class Liquid extends DustBase
 {
     public velocity: { x: number, y: number } = { x: 0, y: 0 };
     public dispersionFactor = 10;
     public dispersionAmount = 0;
+
+    public physicsType: "liquid" = "liquid";
 
     framesSinceLastActivity = 0;
 
@@ -15,7 +17,6 @@ export class Water extends Dust
             blue: 250,
             green: 67
         });
-        this.physicsType = "water";
     }
 
     public step(world: World, x: number, y: number) {
@@ -25,7 +26,7 @@ export class Water extends Dust
         let newY = y;
         let shouldInactivate = this.framesSinceLastActivity > 10;
 
-        if (dustBelow === null || dustBelow === "out-of-bounds" || (dustBelow.physicsType == "water" && this.velocity.y < (dustBelow as Water).velocity.y)) {
+        if (dustBelow === null || dustBelow === "out-of-bounds" || (dustBelow.physicsType == "liquid" && this.velocity.y < dustBelow.velocity.y)) {
             // If there is space below the current spec of dust, it should fall
             this.dispersionAmount = Math.sqrt(this.velocity.y) * this.dispersionFactor;
             this.velocity.y += world.gravity;
@@ -101,7 +102,7 @@ export class Water extends Dust
         let dispersionAmount = this.dispersionAmount;
         for (let disp = 1; disp < dispersionAmount; disp++) {
             let dustBeside = world.getDust(x + disp * dir, y);
-            if (dustBeside !== null && dustBeside !== "out-of-bounds" && dustBeside.physicsType !== "water") {
+            if (dustBeside !== null && dustBeside !== "out-of-bounds" && dustBeside.physicsType !== "liquid") {
                 break;
             }
 

@@ -1,12 +1,14 @@
-import { Dust } from "../Dust";
+import { DustBase } from "../Dust";
 import { World } from "../World";
 
-export class Sand extends Dust
+export class Sand extends DustBase
 {
     public velocity: { x: number, y: number } = { x: 0, y: 0 };
     public dispersionFactor = 10;
     public dispersionAmount = 0;
     public dispersionDistance = 2;
+
+    public physicsType: "sand" = "sand";
 
     constructor() {
         super({
@@ -14,7 +16,6 @@ export class Sand extends Dust
             blue: 10,
             green: 220
         });
-        this.physicsType = "sand";
     }
 
     public step(world: World, x: number, y: number) {
@@ -23,7 +24,7 @@ export class Sand extends Dust
         let newX = x;
         let newY = y;
 
-        if (dustBelow === null || dustBelow === "out-of-bounds" || (dustBelow.physicsType == "sand" && this.velocity.y < (dustBelow as Sand).velocity.y)) {
+        if (dustBelow === null || dustBelow === "out-of-bounds" || (dustBelow.physicsType == "sand" && this.velocity.y < dustBelow.velocity.y)) {
             // If there is space below the current spec of dust, it should fall
             //this.velocity.y = Math.max(this.velocity.y, this.dispersionAmount / Math.max(1, this.dispersionFactor));
             this.dispersionAmount = Math.max(this.dispersionAmount, Math.sqrt(this.velocity.y) * this.dispersionFactor);
@@ -79,9 +80,10 @@ export class Sand extends Dust
             world.setDust(newX, newY, this);
             // Agitate neighbors
             world.getNeighbors(x, y, this.dispersionDistance)
-                .filter(dust => dust[0].physicsType == "sand")
                 .forEach(dust => {
-                    (dust[0] as Sand).dispersionAmount = Math.max((dust[0] as Sand).dispersionAmount, Math.max(0, this.dispersionAmount - Math.sqrt(dust[1])));
+                    if (dust[0].physicsType == "sand") {
+                        dust[0].dispersionAmount = Math.max(dust[0].dispersionAmount, Math.max(0, this.dispersionAmount - Math.sqrt(dust[1])));
+                    }
                     dust[0].active = true;
                 });
         }

@@ -1,4 +1,4 @@
-import { Dust } from "../Dust";
+import { DustBase } from "../Dust";
 import { World } from "../World";
 import { Sand } from "./Sand";
 

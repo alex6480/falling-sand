@@ -1,4 +1,4 @@
-import { Dust } from "./Dust";
+import { Dust, DustBase } from "./Dust";
 import { Solid } from "./DustType/Solid";
 
 export class World

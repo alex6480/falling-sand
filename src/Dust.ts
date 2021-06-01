@@ -1,3 +1,6 @@
+import { Liquid } from "./DustType/Liquid";
+import { Sand } from "./DustType/Sand";
+import { Solid } from "./DustType/Solid";
 import { World } from "./World";
 
 export type Color = {
@@ -6,13 +9,14 @@ export type Color = {
     green: number;
 };
 
-export class Dust
+export type Dust = Liquid | Sand | Solid;
+
+export class DustBase
 {
     readonly noise: number;
     public color: Color;
     readonly rendered: boolean = false;
 
-    public physicsType: "sand" | "solid" | "water" = "solid";
     public active: boolean = true;
 
     constructor (color: Color)
