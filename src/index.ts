@@ -36,15 +36,14 @@ function load()
     document.body.appendChild(canvas);
     window.requestAnimationFrame(animationFrame);
     
-    let world = new World(ctx, 1, 200, 200);
+    let world = new World(ctx, 1, 300, 300);
     resize();
 
     function animationFrame()
     {
         if (isDrawingDust)
         {
-            let scale = canvas.height / world.height;
-            world.fillCircle({ x: mousePos.x / scale, y: mousePos.y / scale }, drawRadius, () => {
+            world.fillCircle({ x: mousePos.x / world.scale, y: mousePos.y / world.scale }, drawRadius, () => {
                 switch (dustTypes[currentDustIndex])
                 {
                     case "solid":

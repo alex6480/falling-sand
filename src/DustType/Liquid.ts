@@ -1,10 +1,10 @@
-import { DustBase } from "../Dust";
+import { Dust, DustBase } from "../Dust";
 import { World } from "../World";
 
 export class Liquid extends DustBase
 {
     public velocity: { x: number, y: number } = { x: 0, y: 0 };
-    public dispersionFactor = 10;
+    public dispersionFactor = 5;
     public dispersionAmount = 0;
 
     public physicsType: "liquid" = "liquid";
@@ -26,48 +26,35 @@ export class Liquid extends DustBase
         let newY = y;
         let shouldInactivate = this.framesSinceLastActivity > 10;
 
-        if (dustBelow === null || dustBelow === "out-of-bounds" || (dustBelow.physicsType == "liquid" && this.velocity.y < dustBelow.velocity.y)) {
+        if (dustBelow === null || (dustBelow.physicsType == "liquid" && this.velocity.y < dustBelow.velocity.y)) {
             // If there is space below the current spec of dust, it should fall
-            this.dispersionAmount = Math.sqrt(this.velocity.y) * this.dispersionFactor;
+            this.dispersionAmount = Math.max(this.dispersionAmount, this.velocity.y * this.dispersionFactor);
+            this.framesSinceLastActivity = 0;
             this.velocity.y += world.gravity;
             shouldInactivate = false;
         } else {
-            // Try to disperse the sand sideways
-            let dispersionOrder: ("left" | "right")[] = Math.random() < 0.5 ? ["left", "right"] : ["right", "left"];
-            let dispersionResultA = this.tryDisperse(world, newX, newY, dispersionOrder[0]);
-            if (dispersionResultA !== null) {
-                shouldInactivate = shouldInactivate && this.framesSinceLastActivity > 50;
-                newX = dispersionResultA.x;
-                newY = dispersionResultA.y;
-            } else {
-                let dispersionResultB = this.tryDisperse(world, newX, newY, dispersionOrder[1]);
-                if (dispersionResultB !== null) {
-                shouldInactivate = shouldInactivate && this.framesSinceLastActivity > 50;
-                    newX = dispersionResultB.x;
-                    newY = dispersionResultB.y;
-                } else {
-                    this.velocity.y = 0;
-                }
+            // Try to disperse the liquid sideways
+            let dispersionResult = this.tryDisperse2(world, newX, newY);
+            shouldInactivate = shouldInactivate && this.framesSinceLastActivity > 50;
+            newX = dispersionResult.x;
+            newY = dispersionResult.y;
+
+            if (dispersionResult.x == x) {
+                this.velocity = { x: 0, y: 0 };
             }
 
-            this.dispersionAmount = Math.max(10, this.dispersionAmount * 0.8 - 1);
+            this.dispersionAmount = Math.max(20, Math.floor(this.dispersionAmount * 0.9) - 0.5);
         }
         
         // Try to move
-        let targetX = Math.round(x + this.velocity.x);
-        let targetY = Math.round(y + this.velocity.y);
+        let targetX = Math.round(newX + this.velocity.x);
+        let targetY = Math.ceil(newY + this.velocity.y);
         let steps = this.getPointsTo({ x, y }, { x: targetX, y: targetY });
         for (let i = 1; i < steps.length; i++) {
             let step = steps[i];
             let dustAtPosition = world.getDust(step.x, step.y);
-            if (dustAtPosition === "out-of-bounds") {
-                // This spec of sand fell out of the world.
-                // Just remove it
-                world.setDust(x, y, null);
-                return;
-            }
             
-            if (dustAtPosition === null) {
+            if (this.canMoveInto(dustAtPosition)) {
                 newX = step.x;
                 newY = step.y;
             } else {
@@ -78,6 +65,7 @@ export class Liquid extends DustBase
         this.framesSinceLastActivity++;
         if (newY != y) {
             this.framesSinceLastActivity = 0;
+            world.getNeighbors(x, y, 2).forEach(dust => dust[0].activate());
         }
 
         if (shouldInactivate) {
@@ -85,14 +73,15 @@ export class Liquid extends DustBase
             this.active = false;
         } else {
             // Update the position
-            world.setDust(x, y, null);
+            let dustAtTarget = world.getDust(newX, newY);
+            world.setDust(x, y, dustAtTarget);
             world.setDust(newX, newY, this);
-            world.activateAround(x, y);
         }
     }
 
     public activate() {
         super.activate();
+        this.framesSinceLastActivity = 0;
     }
 
     tryDisperse(world: World, x: number, y: number, direction: "left" | "right"): { x: number, y: number, dispersion: number } | null {
@@ -101,11 +90,11 @@ export class Liquid extends DustBase
         let dispersionAmount = this.dispersionAmount;
         for (let disp = 1; disp < dispersionAmount; disp++) {
             let dustBeside = world.getDust(x + disp * dir, y);
-            if (dustBeside !== null && dustBeside !== "out-of-bounds" && dustBeside.physicsType !== "liquid") {
+            if (dustBeside !== null && dustBeside.physicsType !== "liquid") {
                 break;
             }
 
-            if (dustBeside === null || dustBeside === "out-of-bounds")
+            if (dustBeside === null)
             {
                 displacement = disp * dir;
             }
@@ -126,5 +115,59 @@ export class Liquid extends DustBase
         } else {
             return { x: x + displacement, y: y + 1,  dispersion: displacement};
         }
+    }
+
+    tryDisperse2(world: World, x: number, y: number): { x: number, y: number, dispersion: number } {
+        let directions = Math.random() < 0.5 ? [-1, 1] : [1, -1];
+        let distance = 1;
+
+        if (this.dispersionAmount == 0) {
+            return { x: x, y: y, dispersion: 0};
+        }
+
+        while (true) {
+            let possibleDirections = directions;
+            for (let i = 0; i < directions.length; i++)
+            {
+                let dir = directions[i];
+                let dustAtPosition = world.getDust(x + dir * distance, y);
+                let dustBelow = world.getDust(x + dir * distance, y + 1);
+
+                if (this.canMoveInto(dustAtPosition) || dustAtPosition.physicsType === "liquid") {
+                    // We can move into this space
+                    // There is a random chance that we don't move any further
+                    let random = Math.random();
+                    if (this.canMoveInto(dustBelow) && random < 0.5 || random < 1 / this.dispersionAmount) {
+                        if (dustAtPosition !== null && dustAtPosition.physicsType === "liquid") {
+                            // We dispersed into another water element, so just stop dispersing
+                            return { x, y, dispersion: 0 };
+                        }
+
+                        if (this.canMoveInto(dustBelow)) {
+                            return { x: x + distance * dir, y: y + 1, dispersion: distance };
+                        } else {
+                            return { x: x + distance * dir, y: y, dispersion: distance };
+                        }
+                    }
+                } else {
+                    // It is not possible to advance in this direction
+                    if (possibleDirections.length === 2) {
+                        // Keep on searching in the other direction
+                        possibleDirections = [-dir];
+                        continue;
+                    } else {
+                        // We cannot move any further in any direction
+                        return { x: x + (distance - 1) * dir, y: y, dispersion: (distance - 1)};
+                    }
+                }
+            }
+            
+            directions = possibleDirections;
+            distance = distance + 1;
+        }
+    }
+
+    canMoveInto(space: null | Dust) {
+        return space === null;
     }
 }

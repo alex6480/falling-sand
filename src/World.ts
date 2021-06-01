@@ -75,7 +75,7 @@ export class World
         console.log(this.dust.length);
     }
 
-    public getDust(x: number, y: number): Dust | null | "out-of-bounds"
+    public getDust(x: number, y: number): Dust | null
     {
         if (x < 0 || y < 0 || x >= this.width || y >= this.width)
         {
@@ -127,7 +127,7 @@ export class World
                     let newDust = getDust(x, y);
                     this.activateAround(x, y);
 
-                    if (previousDust === null || previousDust === "out-of-bounds" || newDust === null || previousDust.physicsType !== newDust.physicsType)
+                    if (previousDust === null  || newDust === null || previousDust.physicsType !== newDust.physicsType)
                     {
                         this.dust[this.getDustIndex(x, y)] = newDust;
                         if (newDust !== null)
@@ -148,8 +148,11 @@ export class World
         let result: [Dust, number][] = [];
         for (let x1 = x - distance; x1 <= x + distance; x1++) {
             for (let y1 = y - distance; y1 <= y + distance; y1++) {
+                // Don't activate the tile itself
+                if (x1 == x && y1 == y) continue;
+
                 let dust = this.getDust(x1, y1);
-                if (dust != null && dust !== "out-of-bounds")
+                if (dust != null)
                 {
                     result.push([dust, (x - x1) * (x - x1) + (y - y1) * (y - y1)]);
                 }

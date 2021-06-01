@@ -24,10 +24,10 @@ export class Sand extends DustBase
         let newX = x;
         let newY = y;
 
-        if (dustBelow === null || dustBelow === "out-of-bounds" || (dustBelow.physicsType == "sand" && this.velocity.y < dustBelow.velocity.y)) {
+        if (dustBelow === null || (dustBelow.physicsType == "sand" && this.velocity.y < dustBelow.velocity.y)) {
             // If there is space below the current spec of dust, it should fall
             //this.velocity.y = Math.max(this.velocity.y, this.dispersionAmount / Math.max(1, this.dispersionFactor));
-            this.dispersionAmount = Math.max(this.dispersionAmount, Math.max(Math.random() * 2, this.velocity.y) * this.dispersionFactor);
+            this.dispersionAmount = Math.max(this.dispersionAmount, Math.max(Math.random() * 2, this.velocity.y * this.velocity.y) * this.dispersionFactor);
             this.velocity.y += world.gravity;
         } else if (dustBelow.physicsType === "liquid") {
             this.velocity.y += world.gravity;
@@ -49,20 +49,14 @@ export class Sand extends DustBase
         }
         
         // Try to move
-        let targetX = Math.ceil(newX + this.velocity.x);
+        let targetX = Math.round(newX + this.velocity.x);
         let targetY = Math.ceil(newY + this.velocity.y);
         let steps = this.getPointsTo({ x, y }, { x: targetX, y: targetY });
         for (let i = 1; i < steps.length; i++) {
             let step = steps[i];
             let dustAtPosition = world.getDust(step.x, step.y);
-            if (dustAtPosition === "out-of-bounds") {
-                // This spec of sand fell out of the world.
-                // Just remove it
-                world.setDust(x, y, null);
-                return;
-            }
             
-            if (dustAtPosition === null || dustAtPosition.physicsType === "liquid") {
+            if (this.canMoveInto(dustAtPosition)) {
                 newX = step.x;
                 newY = step.y;
             } else {
@@ -76,9 +70,7 @@ export class Sand extends DustBase
         } else {
             // Update the position
             let dustAtTarget = world.getDust(newX, newY);
-            if (dustAtTarget === "out-of-bounds") {
-                throw new Error("test");
-            }
+            dustAtTarget?.activate();
             world.setDust(x, y, dustAtTarget);
             world.setDust(newX, newY, this);
 
@@ -86,7 +78,7 @@ export class Sand extends DustBase
             world.getNeighbors(x, y, this.dispersionDistance)
                 .forEach(dust => {
                     if (dust[0].physicsType == "sand") {
-                        dust[0].dispersionAmount = Math.max(dust[0].dispersionAmount, Math.max(0, this.dispersionAmount - Math.sqrt(dust[1])));
+                        dust[0].dispersionAmount = Math.max(dust[0].dispersionAmount, Math.max(0, this.dispersionAmount * 0.8 - dust[1]));
                     }
                     dust[0].activate();
                 });
@@ -107,12 +99,18 @@ export class Sand extends DustBase
             {
                 let dir = directions[i];
                 let dustAtPosition = world.getDust(x + dir * distance, y);
+                let dustBelow = world.getDust(x + dir * distance, y + 1);
 
                 if (this.canMoveInto(dustAtPosition)) {
                     // We can move into this space
                     // There is a random chance that we don't move any further
-                    if (Math.random() < distance / this.dispersionAmount) {
-                        return { x: x + distance * dir, y: y, dispersion: distance};
+                    let random = Math.random();
+                    if (this.canMoveInto(dustBelow) && random < 0.5 || random < distance / this.dispersionAmount) {
+                        if (this.canMoveInto(dustBelow)) {
+                            return { x: x + distance * dir, y: y + 1, dispersion: distance};
+                        } else {
+                            return { x: x + distance * dir, y: y, dispersion: distance};
+                        }
                     }
                 } else {
                     // It is not possible to advance in this direction
@@ -132,7 +130,7 @@ export class Sand extends DustBase
         }
     }
 
-    canMoveInto(space: null | Dust | "out-of-bounds") {
-        return space === null || space === "out-of-bounds" || space.physicsType === "liquid";
+    canMoveInto(space: null | Dust) {
+        return space === null || space.physicsType === "liquid";
     }
 }
