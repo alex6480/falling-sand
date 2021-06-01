@@ -8,8 +8,7 @@ export class World
     public readonly dust: (Dust | null)[];
     public readonly gravity: number = 0.1;
     public imageData: ImageData;
-
-    private _xStepDirection: -1 | 1 = -1;
+    public frame = 0;
 
     constructor(width: number, height: number)
     {
@@ -17,6 +16,7 @@ export class World
         this.height = height;
         this.dust = Array(width * height).fill(null);
         this.imageData = new ImageData(this.width, this.height);
+        this.frame = 0;
 
         // Create a floor
         for (let y = Math.floor(height * 0.9); y < height; y++)
@@ -43,14 +43,14 @@ export class World
 
     public step()
     {
-        this._xStepDirection = -this._xStepDirection as (-1 | 1);
+        let xStepDirection = this.frame % 2 === 0 ? -1 : 1;
         let activeCount = 0;
         for (let y = this.height - 1; y >= 0; y--)
         {
             let layerActive = false;
             for (let i = 0; i < this.width; i++)
             {
-                let x = this._xStepDirection == 1 ? i : this.width - 1 - i;
+                let x = xStepDirection == 1 ? i : this.width - 1 - i;
                 let dust = this.dust[this.getDustIndex(x, y)];
                 if (dust !== null && dust.active)
                 {
@@ -59,13 +59,9 @@ export class World
                     dust.step(this, x, y);
                 }
             }
-
-            if (layerActive) {
-                let a = "test"; // Allow for breakpoints here
-            }
         }
 
-        if (this._xStepDirection == -1) console.log("Active: ", activeCount);
+        this.frame = this.frame + 1;
     }
 
     public getDust(x: number, y: number): Dust | null

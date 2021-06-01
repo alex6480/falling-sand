@@ -9,6 +9,7 @@ export class Sand extends DustBase
     public dispersionDistance = 2;
 
     public physicsType: "sand" = "sand";
+    private ySubPixel: number = 0;
 
     constructor() {
         super({
@@ -46,11 +47,14 @@ export class Sand extends DustBase
                 }
             }
             this.dispersionAmount = Math.max(0, Math.floor(this.dispersionAmount * 0.5 - 5));
+            this.ySubPixel = 0;
         }
         
         // Try to move
         let targetX = Math.round(newX + this.velocity.x);
-        let targetY = Math.ceil(newY + this.velocity.y);
+        let targetY = Math.ceil(newY + this.velocity.y + this.ySubPixel);
+        this.ySubPixel = newY + this.velocity.y + this.ySubPixel - targetY;
+
         let steps = this.getPointsTo({ x, y }, { x: targetX, y: targetY });
         for (let i = 1; i < steps.length; i++) {
             let step = steps[i];

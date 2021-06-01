@@ -3,10 +3,11 @@ import { Sand } from "./DustType/Sand";
 import { Solid } from "./DustType/Solid";
 import { Liquid } from "./DustType/Liquid";
 import { World } from "./World";
+import { Gas } from "./DustType/Gas";
 
 let canvas: HTMLCanvasElement | null = null;
 
-let dustTypes = ["none", "solid", "sand", "gravel", "water"]
+let dustTypes = ["none", "solid", "sand", "gravel", "water", "gas"]
 let currentDustIndex: number = 0;
 let isDrawingDust = false;
 let drawRadius = 10;
@@ -55,6 +56,8 @@ function load()
                         return new Gravel();
                     case "water":
                         return new Liquid();
+                    case "gas":
+                        return new Gas();
                     default:
                         return null;
                 }

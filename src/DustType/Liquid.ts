@@ -9,7 +9,8 @@ export class Liquid extends DustBase
 
     public physicsType: "liquid" = "liquid";
 
-    framesSinceLastActivity = 0;
+    protected framesSinceLastActivity = 0;
+    protected ySubPixel: number = 0;
 
     constructor() {
         super({
@@ -34,13 +35,14 @@ export class Liquid extends DustBase
             shouldInactivate = false;
         } else {
             // Try to disperse the liquid sideways
-            let dispersionResult = this.tryDisperse2(world, newX, newY);
+            let dispersionResult = this.tryDisperse(world, newX, newY);
             shouldInactivate = shouldInactivate && this.framesSinceLastActivity > 50;
             newX = dispersionResult.x;
             newY = dispersionResult.y;
 
             if (dispersionResult.x == x) {
                 this.velocity = { x: 0, y: 0 };
+                this.ySubPixel = 0;
             }
 
             this.dispersionAmount = Math.max(20, Math.floor(this.dispersionAmount * 0.9) - 0.5);
@@ -48,7 +50,8 @@ export class Liquid extends DustBase
         
         // Try to move
         let targetX = Math.round(newX + this.velocity.x);
-        let targetY = Math.ceil(newY + this.velocity.y);
+        let targetY = Math.ceil(newY + this.velocity.y + this.ySubPixel);
+        this.ySubPixel = newY + this.velocity.y + this.ySubPixel - targetY;
         let steps = this.getPointsTo({ x, y }, { x: targetX, y: targetY });
         for (let i = 1; i < steps.length; i++) {
             let step = steps[i];
@@ -84,40 +87,7 @@ export class Liquid extends DustBase
         this.framesSinceLastActivity = 0;
     }
 
-    tryDisperse(world: World, x: number, y: number, direction: "left" | "right"): { x: number, y: number, dispersion: number } | null {
-        let dir = direction == "left" ? -1 : 1;
-        let displacement = 0;
-        let dispersionAmount = this.dispersionAmount;
-        for (let disp = 1; disp < dispersionAmount; disp++) {
-            let dustBeside = world.getDust(x + disp * dir, y);
-            if (dustBeside !== null && dustBeside.physicsType !== "liquid") {
-                break;
-            }
-
-            if (dustBeside === null)
-            {
-                displacement = disp * dir;
-            }
-
-            let dustBelow = world.getDust(x + displacement, y + 1);
-            if (dustBelow === null && Math.random() * 5 < dispersionAmount) {
-                break;
-            }
-        }
-
-        if (displacement == 0) {
-            return null;
-        }
-
-        let dustBelow = world.getDust(x + displacement, y + 1);
-        if (dustBelow !== null) {
-            return { x: x + displacement, y: y, dispersion: displacement};
-        } else {
-            return { x: x + displacement, y: y + 1,  dispersion: displacement};
-        }
-    }
-
-    tryDisperse2(world: World, x: number, y: number): { x: number, y: number, dispersion: number } {
+    protected tryDisperse(world: World, x: number, y: number, yDirection: (-1 | 1) = 1): { x: number, y: number, dispersion: number } {
         let directions = Math.random() < 0.5 ? [-1, 1] : [1, -1];
         let distance = 1;
 
@@ -131,7 +101,7 @@ export class Liquid extends DustBase
             {
                 let dir = directions[i];
                 let dustAtPosition = world.getDust(x + dir * distance, y);
-                let dustBelow = world.getDust(x + dir * distance, y + 1);
+                let dustBelow = world.getDust(x + dir * distance, y + yDirection);
 
                 if (this.canMoveInto(dustAtPosition) || dustAtPosition.physicsType === "liquid") {
                     // We can move into this space
@@ -144,7 +114,7 @@ export class Liquid extends DustBase
                         }
 
                         if (this.canMoveInto(dustBelow)) {
-                            return { x: x + distance * dir, y: y + 1, dispersion: distance };
+                            return { x: x + distance * dir, y: y + yDirection, dispersion: distance };
                         } else {
                             return { x: x + distance * dir, y: y, dispersion: distance };
                         }
@@ -167,7 +137,7 @@ export class Liquid extends DustBase
         }
     }
 
-    canMoveInto(space: null | Dust) {
+    protected canMoveInto(space: null | Dust) {
         return space === null;
     }
 }

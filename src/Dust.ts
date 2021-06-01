@@ -37,11 +37,17 @@ export class DustBase
 
     public getPointsTo(from: { x: number, y: number }, to: { x: number, y: number }): { x: number, y: number }[]
     {
-        let result = [];
-        for (let i = from.y; i <= to.y; i++)
+        let result: { x: number, y: number }[] = [];
+        if (from.y === to.y) {
+            return [];
+        }
+
+        let yDir = from.y < to.y ? 1 : -1;
+        for (let i = from.y; i * yDir <= to.y * yDir; i += yDir)
         {
             result.push({ x: from.x, y: i });
         }
+        
         return result;
     }
 
