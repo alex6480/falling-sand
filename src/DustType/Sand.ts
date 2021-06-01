@@ -4,7 +4,7 @@ import { World } from "../World";
 export class Sand extends DustBase
 {
     public velocity: { x: number, y: number } = { x: 0, y: 0 };
-    public dispersionFactor = 10;
+    public dispersionFactor = 5;
     public dispersionAmount = 0;
     public dispersionDistance = 2;
 
@@ -29,6 +29,10 @@ export class Sand extends DustBase
             //this.velocity.y = Math.max(this.velocity.y, this.dispersionAmount / Math.max(1, this.dispersionFactor));
             this.dispersionAmount = Math.max(this.dispersionAmount, Math.sqrt(this.velocity.y) * this.dispersionFactor);
             this.velocity.y += world.gravity;
+        } else if (dustBelow.physicsType === "liquid") {
+            this.velocity.y *= 0.5;
+            this.velocity.y += world.gravity;
+            this.dispersionAmount = Math.max(this.dispersionAmount, Math.sqrt(this.velocity.y) * this.dispersionFactor);
         } else {
             // Try to disperse the sand sideways
             let dispersionResultLeft = this.tryDisperse(world, newX, newY, "left");
@@ -63,7 +67,7 @@ export class Sand extends DustBase
                 return;
             }
             
-            if (dustAtPosition === null) {
+            if (dustAtPosition === null || dustAtPosition.physicsType === "liquid") {
                 newX = step.x;
                 newY = step.y;
             } else {
@@ -76,8 +80,13 @@ export class Sand extends DustBase
             this.active = false;
         } else {
             // Update the position
-            world.setDust(x, y, null);
+            let dustAtTarget = world.getDust(newX, newY);
+            if (dustAtTarget !== "out-of-bounds") {
+                // If a dust spec is at the target location, swap
+                world.setDust(x, y, dustAtTarget);
+            }
             world.setDust(newX, newY, this);
+
             // Agitate neighbors
             world.getNeighbors(x, y, this.dispersionDistance)
                 .forEach(dust => {
@@ -94,7 +103,7 @@ export class Sand extends DustBase
         let displacement = 0;
         for (let disp = 1; disp < this.dispersionAmount; disp++) {
             let dustBeside = world.getDust(x + disp * dir, y);
-            if (dustBeside !== null && dustBeside !== "out-of-bounds") {
+            if (dustBeside !== null && dustBeside !== "out-of-bounds" && dustBeside.physicsType !== "liquid") {
                 break;
             }
 

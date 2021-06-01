@@ -93,7 +93,6 @@ export class Liquid extends DustBase
 
     public activate() {
         super.activate();
-        this.framesSinceLastActivity = 0;
     }
 
     tryDisperse(world: World, x: number, y: number, direction: "left" | "right"): { x: number, y: number, dispersion: number } | null {
