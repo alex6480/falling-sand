@@ -6,7 +6,7 @@ export class Sand extends Dust
     public velocity: { x: number, y: number } = { x: 0, y: 0 };
     public dispersionFactor = 10;
     public dispersionAmount = 0;
-    public dispersionDistance = 1;
+    public dispersionDistance = 2;
 
     constructor() {
         super({
@@ -26,7 +26,7 @@ export class Sand extends Dust
         if (dustBelow === null || dustBelow === "out-of-bounds" || (dustBelow.physicsType == "sand" && this.velocity.y < (dustBelow as Sand).velocity.y)) {
             // If there is space below the current spec of dust, it should fall
             //this.velocity.y = Math.max(this.velocity.y, this.dispersionAmount / Math.max(1, this.dispersionFactor));
-            this.dispersionAmount = Math.sqrt(this.velocity.y) * this.dispersionFactor;
+            this.dispersionAmount = Math.max(this.dispersionAmount, Math.sqrt(this.velocity.y) * this.dispersionFactor);
             this.velocity.y += world.gravity;
         } else {
             // Try to disperse the sand sideways

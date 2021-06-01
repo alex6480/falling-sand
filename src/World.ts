@@ -152,6 +152,6 @@ export class World
     }
 
     public activateAround(x: number, y: number) {
-        this.getNeighbors(x, y).forEach(dust => dust[0].active = true);
+        this.getNeighbors(x, y).forEach(dust => dust[0].activate());
     }
 }

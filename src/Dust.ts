@@ -41,4 +41,9 @@ export class Dust
         }
         return result;
     }
+
+    public activate()
+    {
+        this.active = true;
+    }
 }

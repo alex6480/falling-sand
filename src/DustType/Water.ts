@@ -90,6 +90,11 @@ export class Water extends Dust
         }
     }
 
+    public activate() {
+        super.activate();
+        this.framesSinceLastActivity = 0;
+    }
+
     tryDisperse(world: World, x: number, y: number, direction: "left" | "right"): { x: number, y: number, dispersion: number } | null {
         let dir = direction == "left" ? -1 : 1;
         let displacement = 0;
