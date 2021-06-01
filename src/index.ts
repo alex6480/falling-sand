@@ -11,6 +11,7 @@ let currentDustIndex: number = 0;
 let isDrawingDust = false;
 let drawRadius = 10;
 
+let scale = 1;
 let mousePos = { x: 0, y: 0 };
 
 function load()
@@ -36,14 +37,14 @@ function load()
     document.body.appendChild(canvas);
     window.requestAnimationFrame(animationFrame);
     
-    let world = new World(ctx, 1, 300, 300);
+    let world = new World(300, 300);
     resize();
 
     function animationFrame()
     {
         if (isDrawingDust)
         {
-            world.fillCircle({ x: mousePos.x / world.scale, y: mousePos.y / world.scale }, drawRadius, () => {
+            world.fillCircle({ x: mousePos.x / scale, y: mousePos.y / scale }, drawRadius, () => {
                 switch (dustTypes[currentDustIndex])
                 {
                     case "solid":
@@ -61,6 +62,11 @@ function load()
         }
 
         world.step();
+
+        // Draw the map at scale 1 and then redraw it afterwards at the correct scale
+        ctx.putImageData(world.imageData, 0, 0);
+        ctx.drawImage(ctx.canvas, 0, 0, world.width, world.height, 0, 0, world.width * scale, world.height * scale);
+
         window.requestAnimationFrame(animationFrame);
     }
 
@@ -77,9 +83,7 @@ function load()
         {
             canvas.setAttribute("width", document.body.clientWidth.toString());
             canvas.setAttribute("height", document.body.clientHeight.toString());
-            world.scale = Math.min(Math.floor(canvas.width / world.width), Math.floor(canvas.height / world.height));
-            
-            world.renderAll();
+            scale = Math.min(Math.floor(canvas.width / world.width), Math.floor(canvas.height / world.height));
         }
     }
 

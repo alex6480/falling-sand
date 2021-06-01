@@ -30,10 +30,9 @@ export class DustBase
 
     }
 
-    public render(ctx: CanvasRenderingContext2D, scale: number, x: number, y: number) {
-        let alpha = 1 - this.noise * 0.2;
-        ctx.fillStyle = `rgb(${this.color.red * alpha}, ${this.color.green * alpha}, ${this.color.blue * alpha})`;
-        ctx.fillRect(x * scale, y * scale, scale, scale);
+    public render(setColor: (red: number, green: number, blue: number) => void) {
+        let brightness = 1 - this.noise * 0.2;
+        setColor(this.color.red * brightness, this.color.green * brightness, this.color.blue * brightness);
     }
 
     public getPointsTo(from: { x: number, y: number }, to: { x: number, y: number }): { x: number, y: number }[]

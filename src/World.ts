@@ -7,20 +7,16 @@ export class World
     public readonly height: number;
     public readonly dust: (Dust | null)[];
     public readonly gravity: number = 0.1;
+    public imageData: ImageData;
 
-    public scale: number = 1;
-    public ctx: CanvasRenderingContext2D;
+    private _xStepDirection: -1 | 1 = -1;
 
-    xStepDirection: -1 | 1 = -1;
-
-    constructor(ctx: CanvasRenderingContext2D, scale: number, width: number, height: number)
+    constructor(width: number, height: number)
     {
         this.width = width;
         this.height = height;
-        this.ctx = ctx;
-        this.scale = scale;
-
         this.dust = Array(width * height).fill(null);
+        this.imageData = new ImageData(this.width, this.height);
 
         // Create a floor
         for (let y = Math.floor(height * 0.9); y < height; y++)
@@ -30,33 +26,31 @@ export class World
                 this.dust[this.getDustIndex(x, y)] = new Solid();
             }
         }
+        this.renderAll();
     }
 
-    public renderAll()
+    private renderAll()
     {
-        this.ctx.clearRect(0, 0, this.width * this.scale, this.height * this.scale);
         for (let i = 0; i < this.width * this.height; i++)
         {
             if (this.dust[i] === null) {
-                continue;
+                this.renderDust(i, 255, 255, 255);
+            } else {
+                this.dust[i].render((red: number, green: number, blue: number) => this.renderDust(i, red, green, blue));
             }
-
-            let x = i % this.width;
-            let y = (i - x) / this.width;
-            this.dust[i].render(this.ctx, this.scale, x, y);
         }
     }
 
     public step()
     {
-        this.xStepDirection = -this.xStepDirection as (-1 | 1);
+        this._xStepDirection = -this._xStepDirection as (-1 | 1);
         let activeCount = 0;
         for (let y = this.height - 1; y >= 0; y--)
         {
             let layerActive = false;
             for (let i = 0; i < this.width; i++)
             {
-                let x = this.xStepDirection == 1 ? i : this.width - 1 - i;
+                let x = this._xStepDirection == 1 ? i : this.width - 1 - i;
                 let dust = this.dust[this.getDustIndex(x, y)];
                 if (dust !== null && dust.active)
                 {
@@ -71,8 +65,7 @@ export class World
             }
         }
 
-        if (this.xStepDirection == -1) console.log("Active: ", activeCount);
-        console.log(this.dust.length);
+        if (this._xStepDirection == -1) console.log("Active: ", activeCount);
     }
 
     public getDust(x: number, y: number): Dust | null
@@ -90,11 +83,13 @@ export class World
         {
             return;
         }
-        this.dust[this.getDustIndex(x, y)] = dust;
-        this.clearDust(x, y);
-        if (dust !== null)
-        {
-            dust.render(this.ctx, this.scale, x, y);
+
+        let index = this.getDustIndex(x, y);
+        this.dust[index] = dust;
+        if (dust !== null) {
+            dust.render((red: number, green: number, blue: number) => this.renderDust(index, red, green, blue));
+        } else {
+            this.renderDust(index, 255, 255, 255);
         }
     }
 
@@ -103,9 +98,11 @@ export class World
         return y * this.width + x;
     }
 
-    public clearDust(x: number, y: number)
-    {
-        this.ctx.clearRect(x * this.scale, y * this.scale, this.scale, this.scale);
+    public renderDust(index: number, red: number, green: number, blue: number) {
+        this.imageData.data[index * 4] = red;
+        this.imageData.data[index * 4 + 1] = green;
+        this.imageData.data[index * 4 + 2] = blue;
+        this.imageData.data[index * 4 + 3] = 255;
     }
 
     public fillCircle(center: { x: number, y: number }, radius: number, getDust: (x: number, y: number) => Dust | null)
@@ -125,19 +122,10 @@ export class World
                 {
                     let previousDust = this.getDust(x, y);
                     let newDust = getDust(x, y);
-                    this.activateAround(x, y);
 
-                    if (previousDust === null  || newDust === null || previousDust.physicsType !== newDust.physicsType)
-                    {
-                        this.dust[this.getDustIndex(x, y)] = newDust;
-                        if (newDust !== null)
-                        {
-                            newDust.render(this.ctx, this.scale, x, y);
-                        }
-                        else
-                        {
-                            this.clearDust(x, y);
-                        }
+                    if (newDust === null || previousDust === null || newDust.physicsType !== previousDust.physicsType) {
+                        this.setDust(x, y, newDust);
+                        this.activateAround(x, y);
                     }
                 }
             }
