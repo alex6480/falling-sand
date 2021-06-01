@@ -27,7 +27,7 @@ function load()
     canvas.addEventListener("mousemove", mouseMove);
     window.addEventListener("keydown", keydown);
     window.addEventListener("wheel", (ev: WheelEvent) => {
-        drawRadius = Math.max(1, drawRadius + Math.max(-1, Math.min(1, -ev.deltaY)));
+        drawRadius = Math.max(0, drawRadius + Math.max(-1, Math.min(1, -ev.deltaY)));
         console.log(drawRadius);
     })
 

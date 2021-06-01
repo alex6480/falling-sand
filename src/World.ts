@@ -71,14 +71,15 @@ export class World
             }
         }
 
-        console.log("Active: ", activeCount);
+        if (this.xStepDirection == -1) console.log("Active: ", activeCount);
+        console.log(this.dust.length);
     }
 
     public getDust(x: number, y: number): Dust | null | "out-of-bounds"
     {
         if (x < 0 || y < 0 || x >= this.width || y >= this.width)
         {
-            return "out-of-bounds";
+            return null;
         }
         return this.dust[this.getDustIndex(x, y)];
     }
@@ -110,6 +111,12 @@ export class World
     public fillCircle(center: { x: number, y: number }, radius: number, getDust: (x: number, y: number) => Dust | null)
     {
         center = { x: Math.floor(center.x), y: Math.floor(center.y) }
+
+        if (radius == 0) {
+            this.setDust(center.x, center.y, getDust(center.x, center.y));
+            return;
+        }
+
         for (let x = Math.max(center.x - radius, 0); x < center.x + radius * 2 && x < this.width; x++)
         {
             for (let y = Math.max(center.y - radius, 0); y < center.y + radius * 2 && y < this.height; y++)
