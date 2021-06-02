@@ -1,6 +1,8 @@
 import { Dust, DustBase } from "./Dust";
 import { Solid } from "./DustType/Solid";
+import { Vec } from "./Helpers/math";
 import DustQuadTree, { QuadTreePhysicsType } from "./QuadTree/DustQuadTree";
+import Ray, { QuadTreeStackItem } from "./QuadTree/ray";
 
 export class World
 {
@@ -48,7 +50,7 @@ export class World
         }
 
         this.frame = this.frame + 1;
-        this.dust.rebuildQuadTree();
+        this.dust.rebuildQuadTree(10);
     }
 }
 
@@ -101,9 +103,11 @@ export class DustMap {
 
         // Register the change to the quad tree
         if (this.physicsTypeChanges[index] === undefined) {
-            this.physicsTypeChanges[index] = [this.data[index] === null ? "nothing" : this.data[index].physicsType, dust === null ? "nothing" : dust.physicsType];
+            if (this.data[index]?.physicsType !== dust?.physicsType) {
+                this.physicsTypeChanges[index] = [this.data[index]?.physicsType ?? "nothing", dust?.physicsType ?? "nothing"];
+            }
         } else {
-            this.physicsTypeChanges[index] = [this.physicsTypeChanges[index][0], dust === null ? "nothing" : dust.physicsType];
+            this.physicsTypeChanges[index] = [this.physicsTypeChanges[index][0], dust?.physicsType ?? "nothing"];
             if (this.physicsTypeChanges[index][0] === this.physicsTypeChanges[index][1]) {
                 delete this.physicsTypeChanges[index];
             }
@@ -185,19 +189,123 @@ export class DustMap {
         this.getNeighbors(x, y).forEach(dust => dust[0].activate());
     }
 
-    public rebuildQuadTree() {
+    public rebuildQuadTree(limit?: number) {
         let changedIndeces = Object.keys(this.physicsTypeChanges);
-        for (let i = 0; i < changedIndeces.length && i < 50; i++) {
+        for (let i = 0; i < changedIndeces.length && (limit === undefined || i < limit); i++) {
             let index = Number(changedIndeces[i]);
-            let from = this.physicsTypeChanges[index][0];
-            let to = this.physicsTypeChanges[index][1];
-            delete this.physicsTypeChanges[index];
+            let x = index % this.width;
+            let y = (index - x) / this.width;
 
-            if (from !== to) {
-                let x = index % this.width;
-                let y = (index - x) / this.width;
-                this.quadTree.replace(x, y, from, to);
-            }
+            let change = this.physicsTypeChanges[index];
+            this.quadTree.replace(x, y, change[0], change[1]);
+            delete this.physicsTypeChanges[index];
         }
+    }
+
+    public traceRay(origin: Vec, direction: Vec, shouldStop: (step: QuadTreePhysicsType) => boolean, length?: number, maxDepth?: number): number {
+        // Ray mirrored so it enters the box from the top left.
+        // This allows implementing code, assuming that this is the case and using a bitmask to get correct code
+        const tlRay = new Ray(
+            new Vec(direction.a < 0 ? -origin.a + this.quadTree.rootScale : origin.a, direction.b < 0 ? -origin.b + this.quadTree.rootScale : origin.b),
+            new Vec(Math.abs(direction.a), Math.abs(direction.b)));
+
+        // Bitmask use to fix child indices if ray isn't traveling in +/+ direction
+        const childIndexMask = (direction.a > 0 ? 0 : 1) + (direction.b > 0 ? 0 : 2);
+        let stack: QuadTreeStackItem[] = [];
+
+        if (maxDepth === undefined) {
+            // If no max depth has been specified, go thorugh the tree to the highest level of detail
+            maxDepth = Number.POSITIVE_INFINITY;
+        }
+
+        // Push the root node to the stack
+        // In a real implementation mayDescend would be determined by whether or not the node has any children
+        stack.push({
+            index: 0,
+            origin: new Vec(0, 0),
+            mayDescend: maxDepth > 1,
+            quadNode: this.quadTree.rootNode
+        });
+
+        do {
+            const scale = this.quadTree.rootScale / Math.pow(2, stack.length - 1);
+            const currentNode = stack[stack.length - 1];
+
+            if (!currentNode.quadNode.isDivided) {
+                // Make sure that all dust within this node has been processed
+                let modified = false;
+                for (let x = Math.max(0, currentNode.origin.a); x < Math.min(this.width, currentNode.origin.a + scale); x++) {
+                    for (let y = Math.max(0, currentNode.origin.b); y < Math.min(this.height, currentNode.origin.b + scale); y++) {
+                        let index = this.getDustIndex(x, y);
+                        if (this.physicsTypeChanges[index] !== undefined) {
+                            modified = true;
+                            let change = this.physicsTypeChanges[index];
+                            delete this.physicsTypeChanges[index];
+                            this.quadTree.replace(x, y, change[0], change[1]);
+                        }
+                    }
+                }
+
+                if (modified) {
+                    // There were changed made to the tree. We need to ascend beyond any hanging (was removed) parent
+                    let ascended = false;
+                    for (let index = stack.length - 1; index >= 0; index--) {
+                        if (stack[index].quadNode.hanging) {
+                            // Ascend to the last parent that isn't hanging
+                            for (let position = stack.length - 1; position >= index; position--) {
+                                stack.pop();
+                            }
+                            stack[stack.length - 1].mayDescend = false;
+                            ascended = true;
+                            break;
+                        }
+                    }
+
+                    if (ascended) continue;
+                }
+            }
+
+            // Check for hit
+            if (shouldStop(currentNode.quadNode.physicsType) && (stack.length === maxDepth || ! currentNode.quadNode.isDivided)) {
+                // We have a hit.
+                const hit = Math.max(tlRay.gettx(currentNode.origin.a), tlRay.getty(currentNode.origin.b));
+                if (length === undefined || hit > 0) {
+                    // If the ray is capped, only return the hit if it is after the origin
+                    return hit;
+                }
+            }
+
+            // Descend to the first child
+            if (currentNode.mayDescend && currentNode.quadNode.isDivided) {
+                let childIndex = Ray.getFirstChildIndex(tlRay, currentNode.origin, scale);
+                // Since the tree is traversed using a mirrored ray, the actual child index is childIndex ^ childIndexMask
+                let childOrigin = Ray.getChildOrigin(currentNode.origin, scale, childIndex);
+                stack.push({
+                    index: childIndex,
+                    origin: childOrigin,
+                    mayDescend: stack.length + 1 < maxDepth,
+                    quadNode: currentNode.quadNode.childNodes[childIndex ^ childIndexMask]
+                });
+            } else {
+                // We are at the max depth. Attempt to move on to the adjacent child instead
+                const childIndex = Ray.getNextChildIndex(currentNode.origin, scale, currentNode.index, tlRay);
+
+                if (childIndex !== null) {
+                    // Adjacent child was found
+                    stack[stack.length - 1] = {
+                        index: childIndex,
+                        origin: Ray.getChildOrigin(stack[stack.length - 2].origin, scale * 2, childIndex),
+                        mayDescend: stack.length < maxDepth,
+                        quadNode: stack[stack.length - 2].quadNode.childNodes[childIndex ^ childIndexMask]
+                    };
+                } else {
+                    // No adjacent child was found.
+                    stack.pop();
+                    stack[stack.length - 1].mayDescend = false;
+                }
+            }
+        } while (stack.length > 1);
+
+        return Number.POSITIVE_INFINITY;
     }
 }

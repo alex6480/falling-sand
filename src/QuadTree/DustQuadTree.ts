@@ -1,6 +1,8 @@
 import { Dust, PhysicsType } from "../Dust";
+import { Vec } from "../Helpers/math";
 import { DustMap } from "../World";
 import { QuadTreeNode } from "./QuadTree";
+import Ray from "./ray";
 
 export type QuadTreePhysicsType = PhysicsType | "nothing";
 
@@ -37,6 +39,9 @@ export class DustQuadTreeNode {
     public containedPhysicsTypes: { [physicsType: string]: number } = {};
 
     public childNodes?: DustQuadTreeNode[];
+
+    // Whether this child node has been detached from it's parent
+    public hanging: boolean = false;
 
     get isDivided(): boolean {
         return this.childNodes !== undefined;
@@ -80,6 +85,7 @@ export class DustQuadTreeNode {
             this.physicsType = Object.keys(this.containedPhysicsTypes)[0] as QuadTreePhysicsType;
             if (this.isDivided) {
                 // Remove the child nodes as there is no longer a need for this node to be divided
+                this.childNodes.forEach(node => node.hanging = true);
                 this.childNodes = undefined;
             }
             return;

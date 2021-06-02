@@ -75,9 +75,9 @@ export default class Ray {
 
             // Descend to the first child
             if (currentNode.mayDescend && currentNode.quadNode.isDivided) {
-                let childIndex = this.getFirstChildIndex(tlRay, currentNode.origin, scale);
+                let childIndex = Ray.getFirstChildIndex(tlRay, currentNode.origin, scale);
                 // Since the tree is traversed using a mirrored ray, the actual child index is childIndex ^ childIndexMask
-                let childOrigin = this.getChildOrigin(currentNode.origin, scale, childIndex);
+                let childOrigin = Ray.getChildOrigin(currentNode.origin, scale, childIndex);
                 stack.push({
                     index: childIndex,
                     origin: childOrigin,
@@ -86,13 +86,13 @@ export default class Ray {
                 });
             } else {
                 // We are at the max depth. Attempt to move on to the adjacent child instead
-                const childIndex = this.getNextChildIndex(currentNode.origin, scale, currentNode.index, tlRay);
+                const childIndex = Ray.getNextChildIndex(currentNode.origin, scale, currentNode.index, tlRay);
 
                 if (childIndex !== null) {
                     // Adjacent child was found
                     stack[stack.length - 1] = {
                         index: childIndex,
-                        origin: this.getChildOrigin(stack[stack.length - 2].origin, scale * 2, childIndex),
+                        origin: Ray.getChildOrigin(stack[stack.length - 2].origin, scale * 2, childIndex),
                         mayDescend: stack.length < maxDepth,
                         quadNode: stack[stack.length - 2].quadNode.childNodes[childIndex ^ childIndexMask]
                     };
@@ -115,7 +115,7 @@ export default class Ray {
      * @param parentScale The scale of the parent node
      * @param mask If the ray didn't originally come from top left, the mask can be used to get the correct index for the orientaiton
      */
-    private getFirstChildIndex(ray: Ray, parentOrigin: Vec, parentScale: number) {
+    public static getFirstChildIndex(ray: Ray, parentOrigin: Vec, parentScale: number) {
         const tx0 = ray.gettx(parentOrigin.a);
         const tx1 = ray.gettx(parentOrigin.a + parentScale * 0.5);
         const ty0 = ray.getty(parentOrigin.b);
@@ -129,14 +129,14 @@ export default class Ray {
         return ((ty1 < tx0 ? 1 : 0) * 2 + (tx1 < ty0 ? 1 : 0));
     }
 
-    private getChildOrigin(parentOrigin: Vec, parentScale: number, childIndex: number) {
+    public static getChildOrigin(parentOrigin: Vec, parentScale: number, childIndex: number) {
         return new Vec(
             (childIndex & 1) * parentScale * 0.5,
             (childIndex & 2) * 0.5 * parentScale * 0.5,
         ).add(parentOrigin);
     }
     
-    private getNextChildIndex(currentChildOrigin: Vec, childSize: number, currentChildIndex: number, ray: Ray): number | null {
+    public static getNextChildIndex(currentChildOrigin: Vec, childSize: number, currentChildIndex: number, ray: Ray): number | null {
         // Since it is assumed that the ray moves in the +/+ direction
         // The ray can only exit the current child below or to the right
         const tRight = ray.gettx(currentChildOrigin.a + childSize);
@@ -150,7 +150,7 @@ export default class Ray {
     }
 }
 
-type QuadTreeStackItem = {
+export type QuadTreeStackItem = {
     index: number,
     origin: Vec,
     mayDescend: boolean,
