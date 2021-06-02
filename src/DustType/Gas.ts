@@ -5,7 +5,7 @@ import { Sand } from "./Sand";
 
 export class Gas extends Liquid
 {
-    public velocity: { x: number, y: number } = { x: 0, y: 0 };
+    public velocity: number = 0;
     public gravityFactor = 0.5;
     public maxSpeed = 1;
     private lastFrame = 0;
@@ -27,16 +27,16 @@ export class Gas extends Liquid
         }
         this.lastFrame = world.frame;
 
-        let dustAbove = world.getDust(x, y - 1);
+        let dustAbove = world.dust.get(x, y - 1);
         let newX = x;
         let newY = y;
         let shouldInactivate = this.framesSinceLastActivity > 10;
 
-        if (dustAbove === null || (dustAbove.physicsType == "liquid" && this.velocity.y >= dustAbove.velocity.y)) {
+        if (dustAbove === null || (dustAbove.physicsType == "liquid" && this.velocity >= dustAbove.velocity)) {
             // If there is space below the current spec of dust, it should fall
-            this.dispersionAmount = Math.max(this.dispersionAmount, -this.velocity.y * this.dispersionFactor);
+            this.dispersionAmount = Math.max(this.dispersionAmount, -this.velocity * this.dispersionFactor);
             this.framesSinceLastActivity = 0;
-            this.velocity.y -= world.gravity * this.gravityFactor;
+            this.velocity -= world.gravity * this.gravityFactor;
             shouldInactivate = false;
         } else {
             // Try to disperse the liquid sideways
@@ -46,28 +46,24 @@ export class Gas extends Liquid
             newY = dispersionResult.y;
 
             if (dispersionResult.x == x) {
-                this.velocity = { x: 0, y: 0 };
+                this.velocity = 0;
             }
 
             this.dispersionAmount = Math.max(20, Math.floor(this.dispersionAmount * 0.9) - 0.5);
         }
         
-        if (-this.velocity.y > this.maxSpeed) {
-            this.velocity.y = -this.maxSpeed;
+        if (-this.velocity > this.maxSpeed) {
+            this.velocity = -this.maxSpeed;
         }
 
         // Try to move
-        let targetX = Math.round(newX + this.velocity.x);
-        let targetY = Math.ceil(newY + this.velocity.y - this.ySubPixel);
-        this.ySubPixel = targetY - (newY + this.velocity.y - this.ySubPixel);
-        let steps = this.getPointsTo({ x, y }, { x: targetX, y: targetY });
-        for (let i = 1; i < steps.length; i++) {
-            let step = steps[i];
-            let dustAtPosition = world.getDust(step.x, step.y);
+        let targetY = Math.ceil(newY + this.velocity - this.ySubPixel);
+        this.ySubPixel = targetY - (newY + this.velocity - this.ySubPixel);
+        for (let stepY = newY - 1; stepY >= targetY; stepY--) {
+            let dustAtPosition = world.dust.get(newX, stepY);
             
             if (this.canMoveInto(dustAtPosition)) {
-                newX = step.x;
-                newY = step.y;
+                newY = stepY;
             } else {
                 break;
             }
@@ -76,7 +72,7 @@ export class Gas extends Liquid
         this.framesSinceLastActivity++;
         if (newY != y) {
             this.framesSinceLastActivity = 0;
-            world.getNeighbors(x, y, 2).forEach(dust => dust[0].activate());
+            world.dust.getNeighbors(x, y, 2).forEach(dust => dust[0].activate());
         }
 
         if (shouldInactivate) {
@@ -84,9 +80,9 @@ export class Gas extends Liquid
             this.active = false;
         } else {
             // Update the position
-            let dustAtTarget = world.getDust(newX, newY);
-            world.setDust(x, y, dustAtTarget);
-            world.setDust(newX, newY, this);
+            let dustAtTarget = world.dust.get(newX, newY);
+            world.dust.set(x, y, dustAtTarget);
+            world.dust.set(newX, newY, this);
         }
     }
 }

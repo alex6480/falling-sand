@@ -3,7 +3,7 @@ import { World } from "../World";
 
 export class Liquid extends DustBase
 {
-    public velocity: { x: number, y: number } = { x: 0, y: 0 };
+    public velocity: number = 0;
     public dispersionFactor = 5;
     public dispersionAmount = 0;
 
@@ -22,16 +22,16 @@ export class Liquid extends DustBase
 
     public step(world: World, x: number, y: number) {
         
-        let dustBelow = world.getDust(x, y + 1);
+        let dustBelow = world.dust.get(x, y + 1);
         let newX = x;
         let newY = y;
         let shouldInactivate = this.framesSinceLastActivity > 10;
 
-        if (dustBelow === null || (dustBelow.physicsType == "liquid" && this.velocity.y < dustBelow.velocity.y)) {
+        if (dustBelow === null || (dustBelow.physicsType == "liquid" && this.velocity < dustBelow.velocity)) {
             // If there is space below the current spec of dust, it should fall
-            this.dispersionAmount = Math.max(this.dispersionAmount, this.velocity.y * this.dispersionFactor);
+            this.dispersionAmount = Math.max(this.dispersionAmount, this.velocity * this.dispersionFactor);
             this.framesSinceLastActivity = 0;
-            this.velocity.y += world.gravity;
+            this.velocity += world.gravity;
             shouldInactivate = false;
         } else {
             // Try to disperse the liquid sideways
@@ -41,7 +41,7 @@ export class Liquid extends DustBase
             newY = dispersionResult.y;
 
             if (dispersionResult.x == x) {
-                this.velocity = { x: 0, y: 0 };
+                this.velocity = 0;
                 this.ySubPixel = 0;
             }
 
@@ -49,17 +49,13 @@ export class Liquid extends DustBase
         }
         
         // Try to move
-        let targetX = Math.round(newX + this.velocity.x);
-        let targetY = Math.ceil(newY + this.velocity.y + this.ySubPixel);
-        this.ySubPixel = newY + this.velocity.y + this.ySubPixel - targetY;
-        let steps = this.getPointsTo({ x, y }, { x: targetX, y: targetY });
-        for (let i = 1; i < steps.length; i++) {
-            let step = steps[i];
-            let dustAtPosition = world.getDust(step.x, step.y);
+        let targetY = Math.ceil(newY + this.velocity + this.ySubPixel);
+        this.ySubPixel = newY + this.velocity + this.ySubPixel - targetY;
+        for (let stepY = newY + 1; stepY <= targetY; stepY++) {
+            let dustAtPosition = world.dust.get(newX, stepY);
             
             if (this.canMoveInto(dustAtPosition)) {
-                newX = step.x;
-                newY = step.y;
+                newY = stepY;
             } else {
                 break;
             }
@@ -68,7 +64,7 @@ export class Liquid extends DustBase
         this.framesSinceLastActivity++;
         if (newY != y) {
             this.framesSinceLastActivity = 0;
-            world.getNeighbors(x, y, 2).forEach(dust => dust[0].activate());
+            world.dust.getNeighbors(x, y, 2).forEach(dust => dust[0].activate());
         }
 
         if (shouldInactivate) {
@@ -76,9 +72,9 @@ export class Liquid extends DustBase
             this.active = false;
         } else {
             // Update the position
-            let dustAtTarget = world.getDust(newX, newY);
-            world.setDust(x, y, dustAtTarget);
-            world.setDust(newX, newY, this);
+            let dustAtTarget = world.dust.get(newX, newY);
+            world.dust.set(x, y, dustAtTarget);
+            world.dust.set(newX, newY, this);
         }
     }
 
@@ -100,8 +96,8 @@ export class Liquid extends DustBase
             for (let i = 0; i < directions.length; i++)
             {
                 let dir = directions[i];
-                let dustAtPosition = world.getDust(x + dir * distance, y);
-                let dustBelow = world.getDust(x + dir * distance, y + yDirection);
+                let dustAtPosition = world.dust.get(x + dir * distance, y);
+                let dustBelow = world.dust.get(x + dir * distance, y + yDirection);
 
                 if (this.canMoveInto(dustAtPosition) || dustAtPosition.physicsType === "liquid") {
                     // We can move into this space

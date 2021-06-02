@@ -4,7 +4,6 @@ import { Sand } from "./Sand";
 
 export class Gravel extends Sand
 {
-    public velocity: { x: number, y: number } = { x: 0, y: 0 };
     public dispersionFactor = 0.5;
     public dispersionAmount = 0;
 

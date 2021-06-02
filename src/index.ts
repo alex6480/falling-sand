@@ -10,6 +10,7 @@ let canvas: HTMLCanvasElement | null = null;
 let dustTypes = ["none", "solid", "sand", "gravel", "water", "gas"]
 let currentDustIndex: number = 0;
 let isDrawingDust = false;
+let renderQuadTree = false;
 let drawRadius = 10;
 
 let scale = 1;
@@ -45,7 +46,7 @@ function load()
     {
         if (isDrawingDust)
         {
-            world.fillCircle({ x: mousePos.x / scale, y: mousePos.y / scale }, drawRadius, () => {
+            world.dust.fillCircle({ x: mousePos.x / scale, y: mousePos.y / scale }, drawRadius, () => {
                 switch (dustTypes[currentDustIndex])
                 {
                     case "solid":
@@ -67,8 +68,9 @@ function load()
         world.step();
 
         // Draw the map at scale 1 and then redraw it afterwards at the correct scale
-        ctx.putImageData(world.imageData, 0, 0);
+        ctx.putImageData(world.dust.imageData, 0, 0);
         ctx.drawImage(ctx.canvas, 0, 0, world.width, world.height, 0, 0, world.width * scale, world.height * scale);
+        if (renderQuadTree) world.dust.quadTree.render(ctx, scale);
 
         window.requestAnimationFrame(animationFrame);
     }
@@ -92,6 +94,10 @@ function load()
 
     function keydown(ev: KeyboardEvent)
     {
+        if (ev.key === "q") {
+            renderQuadTree = !renderQuadTree;
+        }
+
         if (Array.from({ length: 10 }, (v, k) => (k + 1).toString()).indexOf(ev.key) != -1)
         {
             let index = Number(ev.key) - 1;

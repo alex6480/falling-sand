@@ -3,10 +3,10 @@ import { World } from "../World";
 
 export class Sand extends DustBase
 {
-    public velocity: { x: number, y: number } = { x: 0, y: 0 };
+    public velocity: number = 0;
     public dispersionFactor = 2;
     public dispersionAmount = 0;
-    public dispersionDistance = 2;
+    public dispersionDistance = 1;
 
     public physicsType: "sand" = "sand";
     private ySubPixel: number = 0;
@@ -21,19 +21,19 @@ export class Sand extends DustBase
 
     public step(world: World, x: number, y: number) {
         
-        let dustBelow = world.getDust(x, y + 1);
+        let dustBelow = world.dust.get(x, y + 1);
         let newX = x;
         let newY = y;
 
-        if (dustBelow === null || (dustBelow.physicsType == "sand" && this.velocity.y < dustBelow.velocity.y)) {
+        if (dustBelow === null || (dustBelow.physicsType == "sand" && this.velocity < dustBelow.velocity)) {
             // If there is space below the current spec of dust, it should fall
             //this.velocity.y = Math.max(this.velocity.y, this.dispersionAmount / Math.max(1, this.dispersionFactor));
-            this.dispersionAmount = Math.max(this.dispersionAmount, Math.max(Math.random() * 2, this.velocity.y * this.velocity.y) * this.dispersionFactor);
-            this.velocity.y += world.gravity;
+            this.dispersionAmount = Math.max(this.dispersionAmount, Math.max(Math.random() * 2, this.velocity * this.velocity) * this.dispersionFactor);
+            this.velocity += world.gravity;
         } else if (dustBelow.physicsType === "liquid") {
-            this.velocity.y += world.gravity;
-            this.velocity.y *= 0.5;
-            this.dispersionAmount = Math.max(this.dispersionAmount, Math.sqrt(Math.max(Math.random(), this.velocity.y)) * this.dispersionFactor);
+            this.velocity += world.gravity;
+            this.velocity *= 0.5;
+            this.dispersionAmount = Math.max(this.dispersionAmount, Math.sqrt(Math.max(Math.random(), this.velocity)) * this.dispersionFactor);
         } else {
             // Try to disperse the sand sideways
             let dispersionResult = this.tryDisperse(world, newX, newY);
@@ -42,7 +42,7 @@ export class Sand extends DustBase
                 newY = dispersionResult.y;
 
                 if (dispersionResult.x == x) {
-                    this.velocity = { x: 0, y: 0 };
+                    this.velocity = 0;
                     this.dispersionAmount = 0;
                 }
             }
@@ -51,35 +51,31 @@ export class Sand extends DustBase
         }
         
         // Try to move
-        let targetX = Math.round(newX + this.velocity.x);
-        let targetY = Math.ceil(newY + this.velocity.y + this.ySubPixel);
-        this.ySubPixel = newY + this.velocity.y + this.ySubPixel - targetY;
+        let targetY = Math.ceil(newY + this.velocity + this.ySubPixel);
+        this.ySubPixel = newY + this.velocity + this.ySubPixel - targetY;
 
-        let steps = this.getPointsTo({ x, y }, { x: targetX, y: targetY });
-        for (let i = 1; i < steps.length; i++) {
-            let step = steps[i];
-            let dustAtPosition = world.getDust(step.x, step.y);
+        for (let stepY = newY + 1; stepY <= targetY; stepY++) {
+            let dustAtPosition = world.dust.get(newX, stepY);
             
             if (this.canMoveInto(dustAtPosition)) {
-                newX = step.x;
-                newY = step.y;
+                newY = stepY;
             } else {
                 break;
             }
         }
         
-        if (newX == x && newY == y && this.velocity.y == 0 && this.dispersionAmount == 0) {
+        if (newX == x && newY == y && this.velocity == 0 && this.dispersionAmount == 0) {
             // Inactivate the dust spec as no further movement will occur
             this.active = false;
         } else {
             // Update the position
-            let dustAtTarget = world.getDust(newX, newY);
+            let dustAtTarget = world.dust.get(newX, newY);
             dustAtTarget?.activate();
-            world.setDust(x, y, dustAtTarget);
-            world.setDust(newX, newY, this);
+            world.dust.set(x, y, dustAtTarget);
+            world.dust.set(newX, newY, this);
 
             // Agitate neighbors
-            world.getNeighbors(x, y, this.dispersionDistance)
+            world.dust.getNeighbors(x, y, this.dispersionDistance)
                 .forEach(dust => {
                     if (dust[0].physicsType == "sand") {
                         dust[0].dispersionAmount = Math.max(dust[0].dispersionAmount, Math.max(0, this.dispersionAmount * 0.8 - dust[1]));
@@ -102,8 +98,8 @@ export class Sand extends DustBase
             for (let i = 0; i < directions.length; i++)
             {
                 let dir = directions[i];
-                let dustAtPosition = world.getDust(x + dir * distance, y);
-                let dustBelow = world.getDust(x + dir * distance, y + 1);
+                let dustAtPosition = world.dust.get(x + dir * distance, y);
+                let dustBelow = world.dust.get(x + dir * distance, y + 1);
 
                 if (this.canMoveInto(dustAtPosition)) {
                     // We can move into this space

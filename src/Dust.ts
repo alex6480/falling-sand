@@ -10,6 +10,7 @@ export type Color = {
 };
 
 export type Dust = Liquid | Sand | Solid;
+export type PhysicsType = Dust["physicsType" ]
 
 export class DustBase
 {
@@ -33,22 +34,6 @@ export class DustBase
     public render(setColor: (red: number, green: number, blue: number) => void) {
         let brightness = 1 - this.noise * 0.2;
         setColor(this.color.red * brightness, this.color.green * brightness, this.color.blue * brightness);
-    }
-
-    public getPointsTo(from: { x: number, y: number }, to: { x: number, y: number }): { x: number, y: number }[]
-    {
-        let result: { x: number, y: number }[] = [];
-        if (from.y === to.y) {
-            return [];
-        }
-
-        let yDir = from.y < to.y ? 1 : -1;
-        for (let i = from.y; i * yDir <= to.y * yDir; i += yDir)
-        {
-            result.push({ x: from.x, y: i });
-        }
-        
-        return result;
     }
 
     public activate()
